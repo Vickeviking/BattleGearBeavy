@@ -6,7 +6,7 @@ pub struct Register {}
 
 
 #[derive(Component)]
-pub struct RegisterErrorMsg {}
+pub struct RegisterErrorMsg(pub String);
 
 #[derive(Component)]
 pub struct GoToLoginButton {}
@@ -52,43 +52,53 @@ pub enum ErrorEnum {
     PasswordNoNumber,
     FullNameNoSpace,
     DateOfBirthNotValidFormat,
+    NetworkError,
+    EmptyFields,
     Ok
 }
 
-pub fn error_enum_to_string(error_enum: ErrorEnum) {
+
+
+pub fn error_enum_to_string(error_enum: ErrorEnum) -> String {
     match error_enum {
         ErrorEnum::UsernameTaken => {
-            info!("Username is taken");
+            "Username is taken".to_string()
         }
         ErrorEnum::UsernameWithSpecialCharacters => {
-            info!("Username has special characters or spaces");
+            "Username has special characters or spaces".to_string()
         }
         ErrorEnum::EmailTaken => {
-            info!("Email is taken");
+            "Email is taken".to_string()
         }
         ErrorEnum::EmailNotValid => {
-            info!("Email is not valid");
+            "Email is not valid".to_string()
         }
         ErrorEnum::PasswordTooShort => {
-            info!("Password must be at least 8 characters long");
+            "Password must be at least 8 characters long".to_string()
         }
         ErrorEnum::PasswordTooLong => {
-            info!("Password can be at most 50 characters long");
+            "Password can be at most 50 characters long".to_string()
         }
         ErrorEnum::PasswordNoUpperCase => {
-            info!("Password has no uppercase letter");
+            "Password has no uppercase letter".to_string()
         }
         ErrorEnum::PasswordNoNumber => {
-            info!("Password has no number");
+            "Password has no number".to_string()
         }
         ErrorEnum::FullNameNoSpace => {
-            info!("separate first name and last name with a space");
+            "separate first name and last name with a space".to_string()
         }
         ErrorEnum::DateOfBirthNotValidFormat => {
-            info!("Date of birth should be in the format YYYYMMDD");
+            "Date of birth should be in the format YYYYMMDD".to_string()
+        }
+        ErrorEnum::NetworkError => {
+            "Network error".to_string()
+        }
+        ErrorEnum::EmptyFields => {
+            "Empty fields".to_string()
         }
         ErrorEnum::Ok => {
-            info!("Ok");
+            "Ok".to_string()
         }
     }
 }

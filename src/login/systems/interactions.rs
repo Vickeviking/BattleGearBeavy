@@ -2,12 +2,16 @@ use bevy::prelude::*;
 use bevy_simple_text_input::TextInputSubmitEvent;
 use bevy_simple_text_input::TextInputInactive;
 use bevy_simple_text_input::TextInputSettings;
+use bevy_simple_text_input::TextInputValue;
 
 use crate::login::styles::*;
+use crate::login::DebugLogin;
 use crate::login::components::*;
 use crate::AppState;
+use crate::API_URL;
 
 
+use reqwest::Error;
 
 
 
@@ -64,11 +68,25 @@ pub fn interact_with_go_to_register_button(
 
 // ==================  Text Input Field Interactions  ================== //
 
+
 // input field listener
-pub fn listener(mut events: EventReader<TextInputSubmitEvent>) {
-    for event in events.read() {
-        info!("{:?} submitted: {}", event.entity, event.value);
+pub fn listener(
+    mut commands: Commands,
+    mut username_input_field_query: Query<(Entity, &LoginUsernameInputField, &TextInputValue)>,
+    mut password_input_field_query: Query<(Entity, &LoginPasswordInputField, &TextInputValue)>,
+) {
+    for (entity, username_input_field, text_input_value) in username_input_field_query.iter() {
+        if username_input_field.0 != text_input_value.0 {
+            commands.entity(entity).insert(LoginUsernameInputField(text_input_value.0.clone()));
+        }
     }
+
+    for (entity, password_input_field, text_input_value) in password_input_field_query.iter() {
+        if password_input_field.0 != text_input_value.0 {
+            commands.entity(entity).insert(LoginPasswordInputField(text_input_value.0.clone()));
+        }
+    }
+    
 }
 
 pub fn focus(
@@ -152,10 +170,7 @@ pub fn check_login_form(
         return LoginErrorMsgEnum::InvalidCredentials;
     }
 
-    //TODO: call the server to check if the credentials are valid with json
-    //TODO: set resource to the token retrieved from the server
-
-
+    // TODO: Add logic to check if the user exists in the database
 
     LoginErrorMsgEnum::Ok
 }

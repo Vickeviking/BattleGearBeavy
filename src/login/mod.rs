@@ -10,6 +10,8 @@ use crate::AppState;
 
 pub struct LoginPlugin;
 
+pub const DebugLogin: bool = false;
+
 impl Plugin for LoginPlugin {
     fn build(&self, app: &mut App) {
         app

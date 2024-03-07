@@ -11,6 +11,8 @@ use crate::AppState;
 
 pub struct RegisterPlugin;
 
+pub const DebugRegister: bool = true;
+
 impl Plugin for RegisterPlugin {
     fn build(&self, app: &mut App) {
         app
@@ -22,7 +24,8 @@ impl Plugin for RegisterPlugin {
                     focus, 
                     on_submit,
                     interact_with_go_to_login_button,
-                    interact_with_go_to_register_button,
+                    interact_with_register_button,
+                    update_error_message_system
                 ))
             .add_systems(OnExit(AppState::Register), despawn_register);
     }

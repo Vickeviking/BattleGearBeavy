@@ -10,6 +10,8 @@ bevy = "0.13.0"
 smol_str = "0.2.1"
 bevy_simple_text_input = "0.5.0"
 bevy_round_ui = "0.2.0"
+reqwest = { version = "0.11", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
 
 [profile.dev.package."*"]
 opt-level = 3

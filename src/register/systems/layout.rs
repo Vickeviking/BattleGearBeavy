@@ -502,7 +502,7 @@ pub fn build_register(commands: &mut Commands, assets: &Res<MyAssets>, mut mater
                                 },
                                 ..default()
                             },
-                            RegisterErrorMsg {}, // mark this entity as an error message
+                            RegisterErrorMsg("Correct placeholder".to_string()), // mark this entity as an error message
                         )
                     );
 
