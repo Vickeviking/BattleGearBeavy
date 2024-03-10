@@ -40,7 +40,7 @@ pub struct DateOfBirthInputField(pub String);
 pub struct RegisterImageMarker;
 
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq, Clone, Copy)]
 pub enum ErrorEnum {
     UsernameTaken,
     UsernameWithSpecialCharacters,

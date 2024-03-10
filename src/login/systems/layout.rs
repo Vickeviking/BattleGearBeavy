@@ -247,7 +247,7 @@ pub fn build_login(commands: &mut Commands, assets: &Res<MyAssets>, mut material
                                 },
                                 ..default()
                             },
-                            LoginErrorMsg {}, // mark this entity as an error message
+                            LoginErrorMsg("Correct".to_string()), // mark this entity as an error message
                         )
                     );
 

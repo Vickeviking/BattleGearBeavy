@@ -18,9 +18,9 @@ pub struct LoginUsernameInputField(pub String);
 pub struct LoginPasswordInputField(pub String);
 
 #[derive(Component)] 
-pub struct LoginErrorMsg {}
+pub struct LoginErrorMsg(pub String);
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq, Clone, Copy)]
 pub enum LoginErrorMsgEnum {
     InvalidCredentials,
     NetworkError,

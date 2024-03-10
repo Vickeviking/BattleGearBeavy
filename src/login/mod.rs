@@ -10,7 +10,7 @@ use crate::AppState;
 
 pub struct LoginPlugin;
 
-pub const DebugLogin: bool = false;
+pub const DebugLogin: bool = true;
 
 impl Plugin for LoginPlugin {
     fn build(&self, app: &mut App) {
@@ -24,6 +24,7 @@ impl Plugin for LoginPlugin {
                     on_submit,
                     interact_with_login_button,
                     interact_with_go_to_register_button,
+                    update_error_message_system
                 )
             )
             .add_systems(OnExit(AppState::Login), despawn_login);

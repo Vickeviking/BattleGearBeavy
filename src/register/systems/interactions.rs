@@ -1,19 +1,22 @@
 use bevy::prelude::*;
-use bevy::utils::info;
 use bevy_simple_text_input::TextInputSubmitEvent;
 use bevy_simple_text_input::TextInputInactive;
 use bevy_simple_text_input::TextInputSettings;
-use bevy_simple_text_input::TextInputBundle;
 use bevy_simple_text_input::TextInputValue;
 use tokio::runtime::Runtime;
+use reqwest::Error;
+use reqwest::StatusCode;
+use serde::{Serialize, Deserialize};
+use serde_json::{json, Value};
 
+use crate::api::utility::hash_password;
 use crate::register::styles::*;
 use crate::register::components::*;
 use crate::register::DebugRegister;
-use crate::AppState;
+use crate::components::{NewUser, Credentials, LoginResponse};
+use crate::{AppState, CacheKey};
 use crate::API_URL;
 
-use reqwest::Error;
 
 //TODO: 
 
@@ -65,7 +68,7 @@ pub fn interact_with_register_button(
     full_name_query: Query<(Entity, &FullNameInputField)>,
     country_query: Query<(Entity, &CountryInputField)>,
     date_of_birth_query: Query<(Entity, &DateOfBirthInputField)>,
-    mut error_msg_query: Query<&mut RegisterErrorMsg>, // Add this line
+    mut error_msg_query: Query<&mut RegisterErrorMsg>, 
 ) {
     if let Ok((interaction, mut background_color)) 
         = button_query.get_single_mut() {
@@ -78,7 +81,16 @@ pub fn interact_with_register_button(
                 *background_color = BUTTON_COLOR_CLICKED.into();
                 // we should call submit function here to get the values of the input fields
                 // into the components 
-                
+                let username = username_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                let email = email_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                let password_hash = password_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                let full_name = full_name_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                let country = country_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                let date_of_birth = date_of_birth_query.iter().next().map_or_else(|| "".to_string(), |(_, field)| field.0.clone());
+                // convert date_of_birth yyyymmdd to yyyy-mm-dd
+                let date_of_birth = format!("{}-{}-{}", &date_of_birth[0..4], &date_of_birth[4..6], &date_of_birth[6..8]);
+
+
                 let err_enum: ErrorEnum = check_register_form(
                     username_query,
                     email_query,
@@ -93,6 +105,26 @@ pub fn interact_with_register_button(
                 // Change the error message to the component
                 if let Ok(mut error_msg) = error_msg_query.get_single_mut() {
                     error_msg.0 = err_text;
+                }
+
+                if err_enum == ErrorEnum::Ok {
+                    // lets register the user
+
+                    let user = NewUser {
+                        username: username.clone(),
+                        email,
+                        password_hash: password_hash.clone(),
+                        full_name,
+                        country,
+                        date_of_birth,
+                    };
+                    
+                    match create_user_sync(user) {
+                        Ok(()) => info!("User created successfully"),
+                        Err(e) => eprintln!("Failed to create user: {}", e),
+                    }
+                    
+                    app_state_next_state.set(AppState::Login);
                 }
             }
             Interaction::Hovered => {
@@ -480,16 +512,12 @@ pub fn check_register_form(
 //TODO: pub fn update_register_error_msg
 
 pub fn check_if_username_taken_sync(username: &str) -> Result<bool, Error> {
-    return Ok(false);
-    //TODO: remove line above when the server is up
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     rt.block_on(check_if_username_taken(username))
 }
 
 pub fn check_if_email_taken_sync(email: &str) -> Result<bool, Error> {
-    return Ok(false);
-    //TODO: remove line above when the server is up
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     rt.block_on(check_if_email_taken(email))
 }
 
@@ -518,3 +546,42 @@ pub fn update_error_message_system(
         }
     }
 }
+
+// creating user
+pub async fn create_user(mut user: NewUser) -> Result<(), reqwest::Error> {
+    let url = format!("{}/users", API_URL);
+    let client = reqwest::Client::new();
+
+    //hash password 
+    match hash_password(user.password_hash.clone()) {
+        Ok(hashed_password) => {
+            user.password_hash = hashed_password;
+        }
+        _ => {
+            info!("Could not hash");
+        }
+    }
+
+    let response = client.post(&url)
+        .json(&json!({
+            "username": user.username,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "full_name": user.full_name,
+            "country": user.country,
+            "date_of_birth": user.date_of_birth,
+        }))
+        .send()
+        .await?;
+
+    assert!(response.status().is_success());
+    
+    Ok(())
+}
+
+pub fn create_user_sync(user: NewUser) -> Result<(), Error> {
+    let rt = Runtime::new().unwrap();
+    rt.block_on(create_user(user))
+}
+
+// login user

@@ -7,11 +7,16 @@ use bevy_simple_text_input::TextInputValue;
 use crate::login::styles::*;
 use crate::login::DebugLogin;
 use crate::login::components::*;
-use crate::AppState;
+use crate::{AppState, CacheKey, NextState};
 use crate::API_URL;
+use crate::components::Credentials;
+use std::io;
 
-
-use reqwest::Error;
+use tokio::runtime::Runtime;
+use reqwest::StatusCode;
+use serde_json::json;
+use reqwest::{Error, Response};
+use std::io::Error as IoError;
 
 
 
@@ -19,14 +24,34 @@ use reqwest::Error;
 
 pub fn  interact_with_login_button(
     mut button_query: Query<(&Interaction, &mut BackgroundColor), 
-                            (Changed<Interaction>, With<LoginButton>)>
+                            (Changed<Interaction>, With<LoginButton>)>,
+    username_query: Query<(Entity, &LoginUsernameInputField)>,
+    password_query: Query<(Entity, &LoginPasswordInputField)>,
+    mut cache_key:  ResMut<CacheKey>,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+    mut error_msg_query: Query<&mut LoginErrorMsg>, 
 ) {
     if let Ok((interaction, mut background_color)) 
         = button_query.get_single_mut() {
         match *interaction {
             Interaction::Pressed => {
                 *background_color = BUTTON_COLOR_CLICKED.into();
-                // TODO: Add logic to log in
+                // get the username and password from query
+                let (username_entity, username) = username_query.get_single().unwrap();
+                let (password_entity, password) = password_query.get_single().unwrap();
+                // check if the login form is valid
+                let login_error = check_login_form(username, password, &mut cache_key);
+                let err_text = login_error_enum_to_string(login_error);
+                if let Ok(mut error_msg) = error_msg_query.get_single_mut() {
+                    error_msg.0 = err_text;
+                }
+
+                // if Ok, the user was login lets change to the next state
+                if login_error == LoginErrorMsgEnum::Ok {
+                    app_state_next_state.set(AppState::Dashboard);
+                }
+    
+
             }
             Interaction::Hovered => {
                 *background_color = BUTTON_COLOR_HOVER.into();
@@ -155,22 +180,88 @@ pub fn on_submit(
 }
 
 pub fn check_login_form(
-    mut login_query: Query<(&LoginUsernameInputField, &LoginPasswordInputField)>,
-    mut login_button_query: Query<(&mut BackgroundColor), With<LoginButton>>,
+    username: &LoginUsernameInputField,
+    password: &LoginPasswordInputField,
+    cacheResouce: &mut ResMut<CacheKey>,
 ) -> LoginErrorMsgEnum {
     
-    let (LoginUsernameInputField(username), LoginPasswordInputField(password)) = login_query.get_single().unwrap();
+    // make username and password into text
+    let username = username.0.clone();
+    let password = password.0.clone();
 
     if username.is_empty() || password.is_empty() {
         return LoginErrorMsgEnum::InvalidCredentials;
     }
-
     //check if the username has empty spaces
     if username.contains(" ") {
         return LoginErrorMsgEnum::InvalidCredentials;
     }
 
-    // TODO: Add logic to check if the user exists in the database
-
+    // create user credentials
+    let credentials = Credentials {
+        username: username.clone(),
+        password: password.clone(),
+    };
+    // call login function
+    let token = login_sync(credentials);
+    // check if the login was successful
+    if token.is_err() {
+        return LoginErrorMsgEnum::InvalidCredentials;
+    } 
+    // save the token in the cache
+    cacheResouce.0 = token.unwrap();
     LoginErrorMsgEnum::Ok
+}
+
+// error message system
+
+pub fn update_error_message_system(
+    mut text_query: Query<(&mut Text, &LoginErrorMsg)>,
+) {
+    for (mut text, error_msg) in text_query.iter_mut() {
+        if let Some(section) = text.sections.first_mut() {
+            section.value = error_msg.0.clone();
+        }
+    }
+}
+
+
+// login functionality
+pub async fn login(credentials: Credentials) -> Result<String, Error> {
+    //debug credentials
+    if DebugLogin {
+        info!("username: {}", credentials.username);
+        info!("password: {}", credentials.password);
+    }
+
+    let url = format!("{}/login", API_URL);
+    let client = reqwest::Client::new();
+    let response = client.post(&url)
+        .json(&json!({
+            "username": credentials.username,
+            "password": credentials.password,
+        }))
+        .send()
+        .await?;
+
+    // debug response
+    if DebugLogin {
+        info!("response: {:?}", response);
+    }
+
+    if response.status() != StatusCode::OK {
+        // return reqwest error
+        return Err(response.error_for_status().unwrap_err());
+    }
+    
+
+    let json: serde_json::Value = response.json().await?;
+    let token = json.get("token").unwrap().as_str().unwrap();
+
+    Ok(token.to_string())
+}
+
+pub fn login_sync(credentials: Credentials) -> Result<String, Error> {
+    let rt = Runtime::new().unwrap();
+    rt.block_on(login(credentials))
 }
